@@ -1,0 +1,70 @@
+name: case-study-1
+
+services:
+  php:
+    build:
+      context: .docker/php
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    container_name: case-study-1-php
+    restart: unless-stopped
+    ports:
+      - 5180:5173
+    volumes:
+      - .:/var/www:cached
+      # Mounted so supervisor changes apply on container restart
+      # without rebuilding the image.
+      - .docker/php/supervisord.conf:/etc/supervisord.conf
+    environment:
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx
+    container_name: case-study-1-nginx
+    restart: unless-stopped
+    ports:
+      - 8092:80
+    volumes:
+      - .:/var/www:cached
+      - .docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - .docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - php
+
+  db:
+    image: mysql:8.1
+    container_name: case-study-1-db
+    ports:
+      - 3311:3306
+    volumes:
+      - db_data:/var/lib/mysql
+      - .docker/logs:/var/log/mysql
+      - .docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
+      - .docker/db/sql:/docker-entrypoint-initdb.d
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: uplb
+      MYSQL_PASSWORD: uplb
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: case-study-1-phpmyadmin
+    ports:
+      - 8093:80
+    links:
+      - db
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+    volumes:
+      - phpmyadmin_sessions:/sessions
+
+volumes:
+  phpmyadmin_sessions:
+  db_data:
